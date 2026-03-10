@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>SmartGrid Dynamics | Tech & Innovation</title>
+    <!-- favicon with smooth rounded edges -->
+    <link rel="icon" href="image.png" type="image/png" style="border-radius: 20%;">
+    <style>
+        /* Smooth favicon fallback - this helps but browser caching may apply */
+        link[rel="icon"] {
+            border-radius: 20%;
+            mask-image: radial-gradient(circle, white 100%, black 100%);
+            -webkit-mask-image: radial-gradient(circle, white 100%, black 100%);
+        }
+    </style>
+    <!-- Font Awesome 6 (latest) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Space Grotesk', 'Archivo', sans-serif;
+        }
+        body {
+            background: #0a0c12;
+            background-image: radial-gradient(circle at 15% 30%, rgba(70, 90, 120, 0.15) 0%, transparent 40%),
+                              radial-gradient(circle at 85% 70%, rgba(100, 130, 170, 0.1) 0%, transparent 45%);
+            color: #e0e8f5;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        .ambient-light {
+            position: fixed;
+            top: -50%;
+            left: -20%;
+            width: 140%;
+            height: 140%;
+            background: radial-gradient(circle at 30% 50%, rgba(100, 140, 200, 0.06) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .cursor-dot {
+            width: 4px;
+            height: 4px;
+            background: #b0c4de;
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 10000;
+            transform: translate(-50%, -50%);
+            transition: 0.03s;
+            box-shadow: 0 0 15px #b0c4de;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem 2.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 2rem;
+            background: rgba(15, 20, 28, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(160, 180, 210, 0.15);
+            border-radius: 60px;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            box-shadow: 0 10px 30px -15px rgba(0,0,0,0.8);
+        }
+        
+        .logo {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #f0f5ff, #b0c8f0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transform: perspective(600px) rotateX(1deg);
+            filter: drop-shadow(0 4px 6px #00000040);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2.8rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: #c0d0e8;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            position: relative;
+            padding: 0.4rem 0;
+            transition: 0.2s;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background: #b0c8ff;
+            box-shadow: 0 0 12px #9bb9ff;
+            transition: 0.3s;
+        }
+        .nav-links a:hover::after { width: 100%; }
+        .nav-links a:hover { color: white; }
+        
+        .menu-btn {
+            display: none;
+            background: rgba(160,180,210,0.1);
+            border: 1px solid rgba(200,220,255,0.2);
+            color: #c0d0e8;
+            font-size: 1.8rem;
+            padding: 0.2rem 1.2rem;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        @media (max-width: 800px) {
+            .menu-btn { display: block; }
+            .nav-links {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                gap: 1.2rem;
+                padding: 1.8rem 0;
+            }
+            .nav-links.active { display: flex; }
+        }
+
+        .secret-trigger {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(30,40,55,0.4);
+            backdrop-filter: blur(8px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #708090;
+            border: 1px solid #3a4a5a;
+            cursor: pointer;
+            z-index: 1000;
+            transition: 0.2s;
+        }
+        .secret-trigger:hover { color: #c0d0e8; border-color: #8090a0; }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            padding: 3rem 0 5rem;
+            align-items: center;
+        }
+        @media (max-width: 800px) { .hero { grid-template-columns: 1fr; } }
+        
+        .hero-badge {
+            background: rgba(180,200,240,0.08);
+            backdrop-filter: blur(4px);
+            padding: 0.5rem 2rem;
+            border-radius: 60px;
+            display: inline-block;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(180,200,240,0.2);
+            color: #d0e0ff;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+        
+        .hero-title {
+            font-size: clamp(2.8rem, 8vw, 5.2rem);
+            font-weight: 600;
+            line-height: 1.0;
+            margin-bottom: 1.8rem;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 30px rgba(140,180,255,0.2);
+            transform: perspective(800px) rotateX(0.5deg);
+        }
+        
+        .hero-title span {
+            background: linear-gradient(145deg, #f0f5ff, #b0c8ff, #d0dcff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 8px 10px #00000050);
+        }
+        
+        .hero-desc {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 2.8rem;
+            max-width: 550px;
+            color: #c0d0ec;
+            font-weight: 300;
+            letter-spacing: 0.3px;
+            line-height: 1.6;
+        }
+        
+        .hero-stats {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .hero-stat-item {
+            background: rgba(10, 15, 25, 0.6);
+            backdrop-filter: blur(6px);
+            padding: 0.8rem 2rem;
+            border-radius: 60px;
+            border: 1px solid rgba(180,200,240,0.15);
+            box-shadow: 0 10px 25px -10px black;
+        }
+        .hero-stat-number {
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-right: 0.4rem;
+            text-shadow: 0 0 15px #b0c8ff;
+        }
+        
+        .hero-visual {
+            position: relative;
+            height: 420px;
+        }
+        .metallic-core {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            background: radial-gradient(circle at 35% 35%, #d0e0ff, #708090 70%, #2a3a4a);
+            border-radius: 50%;
+            top: 15%;
+            left: 20%;
+            box-shadow: 0 30px 50px black, inset 0 -10px 30px #00000080, inset 10px 20px 40px #ffffff40;
+            animation: subtleFloat 10s infinite alternate;
+        }
+        @keyframes subtleFloat {
+            0% { transform: translate(0,0) rotateX(5deg) rotateY(5deg); }
+            100% { transform: translate(15px, -15px) rotateX(8deg) rotateY(8deg); }
+        }
+        .tech-ring {
+            position: absolute;
+            width: 380px;
+            height: 380px;
+            border: 2px solid rgba(200,220,255,0.1);
+            border-radius: 50%;
+            top: 0%;
+            left: 5%;
+            animation: spinSlow 50s linear infinite;
+        }
+        @keyframes spinSlow { to { transform: rotate(360deg); } }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin: 5rem 0;
+        }
+        @media (max-width: 800px) { .info-grid { grid-template-columns: 1fr; } }
+        .info-card {
+            background: rgba(12, 18, 28, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(180,200,240,0.1);
+            border-radius: 48px;
+            padding: 2.8rem 2rem;
+            transition: 0.3s;
+            box-shadow: 0 20px 35px -15px black;
+            transform: perspective(800px) rotateX(0.3deg);
+        }
+        .info-card:hover {
+            transform: translateY(-8px) perspective(800px) rotateX(0.8deg);
+            border-color: rgba(200,220,255,0.2);
+        }
+        .info-icon {
+            font-size: 2.5rem;
+            color: #b0c8f0;
+            margin-bottom: 1.8rem;
+        }
+        .info-card h3 { 
+            font-size: 2rem; 
+            font-weight: 500; 
+            margin-bottom: 1.2rem;
+            background: linear-gradient(135deg, #f0f5ff, #b0c8f0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .info-card p { 
+            opacity: 0.8; 
+            line-height: 1.7;
+            font-size: 1.05rem;
+            color: #c0d0ec;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 4rem 0 2rem;
+            flex-wrap: wrap;
+        }
+        .section-header h2 {
+            font-size: 3rem;
+            font-weight: 500;
+            border-left: 5px solid #b0c8ff;
+            padding-left: 1.8rem;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+        .deployed-badge {
+            background: rgba(20,30,45,0.7);
+            backdrop-filter: blur(8px);
+            padding: 0.8rem 2.2rem;
+            border-radius: 60px;
+            border: 1px solid #3a506a;
+            font-size: 1.2rem;
+        }
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2.2rem;
+            margin: 2rem 0;
+        }
+        .project-card {
+            background: rgba(10, 18, 28, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(180,200,240,0.1);
+            border-radius: 48px;
+            padding: 2.2rem;
+            transition: 0.25s;
+            text-decoration: none;
+            color: white;
+            box-shadow: 0 20px 30px -15px black;
+        }
+        .project-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(200,220,255,0.3);
+            background: rgba(20,35,55,0.8);
+        }
+        .project-name {
+            font-size: 2.2rem;
+            font-weight: 600;
+            background: linear-gradient(145deg, #ffffff, #b0c8f0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.8rem;
+        }
+        .project-desc { 
+            margin: 0.8rem 0 1.2rem; 
+            opacity: 0.8;
+            line-height: 1.7;
+            color: #b0c8e0;
+        }
+        .project-link {
+            color: #90a8d0;
+            font-size: 0.9rem;
+            border-bottom: 1px dashed #3a506a;
+            padding-bottom: 0.2rem;
+        }
+
+        .drawer-trigger-wrapper {
+            display: flex;
+            justify-content: center;
+            margin: 5rem 0 2rem;
+        }
+        .glowing-btn {
+            background: rgba(25, 38, 55, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid #7084a0;
+            border-radius: 80px;
+            padding: 1.2rem 5rem;
+            font-size: 2rem;
+            font-weight: 500;
+            color: #f0f5ff;
+            display: inline-flex;
+            align-items: center;
+            gap: 2rem;
+            cursor: pointer;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(200,220,255,0.1) inset;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s;
+        }
+        .glowing-btn:hover {
+            background: rgba(40, 60, 90, 0.8);
+            border-color: #a0b8e0;
+            transform: scale(1.02);
+        }
+
+        .drawer-overlay {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(12px);
+            z-index: 2000;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.3s;
+            pointer-events: none;
+        }
+        .drawer-overlay.active {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: all;
+        }
+        .drawer-panel {
+            background: rgba(8, 16, 28, 0.95);
+            backdrop-filter: blur(30px);
+            border-top-left-radius: 60px;
+            border-top-right-radius: 60px;
+            border: 1px solid #2a405a;
+            width: 100%;
+            max-width: 800px;
+            padding: 2.8rem;
+            transform: translateY(100%);
+            transition: 0.4s cubic-bezier(0.2, 0.9, 0.3, 1);
+            box-shadow: 0 -20px 60px black;
+        }
+        .drawer-overlay.active .drawer-panel { transform: translateY(0); }
+        .drawer-panel h2 {
+            font-size: 2.8rem;
+            margin-bottom: 2.2rem;
+            border-left: 5px solid #a0b8e0;
+            padding-left: 1.5rem;
+        }
+        .close-drawer {
+            float: right;
+            font-size: 2rem;
+            background: none;
+            border: none;
+            color: #a0b8e0;
+            cursor: pointer;
+        }
+        .form-row {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .form-group {
+            flex: 1 1 250px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            background: rgba(10,20,35,0.8);
+            border: 1px solid #2a3f5a;
+            border-radius: 50px;
+            padding: 0.9rem 1.5rem;
+            color: #e0f0ff;
+            font-size: 1rem;
+        }
+        .form-group textarea { border-radius: 30px; }
+        .btn-submit {
+            background: #1f3045;
+            border: 1px solid #60758b;
+            border-radius: 60px;
+            padding: 1.2rem 3rem;
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-submit:hover { background: #2a3f60; }
+
+        .footer {
+            margin-top: 5rem;
+            padding: 3rem 0;
+            border-top: 1px solid #1a2a3a;
+            display: grid;
+            grid-template-columns: repeat(4,1fr);
+            gap: 2rem;
+        }
+        @media (max-width:700px){ .footer{ grid-template-columns:1fr; } }
+        .footer-col h4 { 
+            margin-bottom: 1.5rem; 
+            font-size: 1.3rem;
+            color: #b0c8e0;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .footer-col ul { list-style: none; }
+        .footer-col ul li { margin-bottom: 0.8rem; }
+        .footer-col ul li a { color: #8090a8; text-decoration: none; }
+        .footer-col ul li a:hover { color: #b0c8f0; }
+        .social-links { 
+            display: flex; 
+            gap: 1.2rem; 
+            flex-wrap: wrap;
+        }
+        .social-links a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #3a506a;
+            border-radius: 50%;
+            color: #8090a8;
+            transition: 0.2s;
+            text-decoration: none;
+        }
+        .social-links a:hover {
+            color: #b0c8f0;
+            border-color: #8098c0;
+            background: rgba(100,140,200,0.1);
+            transform: translateY(-3px);
+        }
+        .social-links i { 
+            font-size: 1.3rem; 
+        }
+
+        .info-note { text-align: center; opacity: 0.4; margin: 2rem 0 1rem; }
+        .loading-spinner {
+            width: 50px; height: 50px;
+            border: 2px solid #1a2a3a;
+            border-top-color: #b0c8f0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        .empty-state {
+            grid-column: 1/-1;
+            text-align: center;
+            padding: 4rem;
+            opacity: 0.6;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+            border: 2px dashed #1a2a3a;
+            border-radius: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-light"></div>
+    <div class="cursor-dot" id="cursorDot"></div>
+    
+    <div class="secret-trigger" id="secretTrigger" onclick="revealAdmin()">
+        <i class="fas fa-cog"></i>
+    </div>
+
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">SMARTGRID DYNAMICS</div>
+            <button class="menu-btn" onclick="toggleMobileMenu()"><i class="fas fa-bars"></i></button>
+            <div class="nav-links" id="navLinks">
+                <a href="#home">Home</a>
+                <a href="#company">Company</a>
+                <a href="#projects">Projects</a>
+                <a href="#contact">Contact</a>
+                <a href="#" id="adminNavLink" style="display:none; background:rgba(80,100,140,0.2); padding:0.5rem 1.8rem; border-radius:40px;"><i class="fas fa-user-shield"></i> Admin</a>
+                <a href="#" style="border:1px solid #3a4a60; padding:0.5rem 1.8rem; border-radius:40px;">sgd</a>
+            </div>
+        </nav>
+
+        <section id="home" class="hero">
+            <div class="hero-content">
+                <span class="hero-badge"><i class="fas fa-bolt"></i> DEEP TECH · INNOVATION LAB</span>
+                <h1 class="hero-title">POWERING <span>INTELLIGENT GRIDS</span> WITH US</h1>
+                <p class="hero-desc" id="companyDescription">—</p>
+                <div class="hero-stats" id="heroStats">
+                    <div class="hero-stat-item"><span class="hero-stat-number" id="statProjects">0</span> PROJECTS</div>
+                    <div class="hero-stat-item"><span class="hero-stat-number" id="statCountries">0</span> COUNTRIES</div>
+                    <div class="hero-stat-item"><span class="hero-stat-number" id="statPartners">0</span> PARTNERS</div>
+                    <div class="hero-stat-item"><span class="hero-stat-number" id="statPatents">0</span> PATENTS</div>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="metallic-core"></div>
+                <div class="tech-ring"></div>
+            </div>
+        </section>
+
+        <div class="info-grid" id="company">
+            <div class="info-card" id="founderCard">
+                <div class="info-icon"><i class="fas fa-user-astronaut"></i></div>
+                <h3 id="founderName">Founder</h3>
+                <p id="founderBio">—</p>
+            </div>
+            <div class="info-card" id="innovationCard">
+                <div class="info-icon"><i class="fas fa-microchip"></i></div>
+                <h3 id="innovationTitle">Innovation</h3>
+                <p id="innovationDesc">—</p>
+            </div>
+            <div class="info-card" id="globalCard">
+                <div class="info-icon"><i class="fas fa-globe"></i></div>
+                <h3 id="globalTitle">Global</h3>
+                <p id="globalDesc">—</p>
+            </div>
+        </div>
+
+        <div class="section-header" id="projects">
+            <h2>ACTIVE INNOVATIONS</h2>
+            <div class="deployed-badge"><span id="projectCount">0</span> PROJECTS DEPLOYED</div>
+        </div>
+        <div class="projects-grid" id="projectsContainer">
+            <div class="loading-spinner"></div>
+        </div>
+
+        <div class="drawer-trigger-wrapper">
+            <div class="glowing-btn" onclick="openDrawer()">
+                <i class="fas fa-paper-plane"></i> CONNECT
+            </div>
+        </div>
+        <div class="info-note"><i class="fas fa-lock"></i> secure connection form · response within 24h</div>
+
+        <footer class="footer" id="contact">
+            <div class="footer-col">
+                <h4>SmartGrid Dynamics</h4>
+                <p>© 2026 · all rights reserved</p>
+            </div>
+            <div class="footer-col">
+                <h4>Explore</h4>
+                <ul>
+                    <li><a href="#projects">projects</a></li>
+                    <li><a href="#">careers</a></li>
+                    <li><a href="#">news</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">privacy</a></li>
+                    <li><a href="#">terms</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>social</h4>
+                <div class="social-links">
+                    <a href="https://www.instagram.com/_technology.co" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                    <a href="https://facebook.com/smartgriddynamics" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://wa.me/+255765832277" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                    <a href="https://tiktok.com/@smartgriddynamics" aria-label="TikTok"><i class="fab fa-tiktok"></i></a>
+                    <a href="https://linkedin.com/company/smartgriddynamics" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                    <a href="https://github.com/smartgriddynamics" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                    <a href="https://www.youtube.com/@SmartGridDynamics" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+                    <a href="https://t.me/smartgriddynamics" aria-label="Telegram"><i class="fab fa-telegram"></i></a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <div class="drawer-overlay" id="drawerOverlay">
+        <div class="drawer-panel">
+            <button class="close-drawer" onclick="closeDrawer()"><i class="fas fa-times"></i></button>
+            <h2>CONNECT WITH US</h2>
+            <form id="connectForm">
+                <div class="form-row">
+                    <div class="form-group"><label>full name</label><input type="text" id="connName" required></div>
+                    <div class="form-group"><label>email</label><input type="email" id="connEmail" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>phone</label><input type="tel" id="connPhone"></div>
+                    <div class="form-group"><label>location</label><input type="text" id="connLocation"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>project interest</label><select id="connProjectSelect"><option>loading..</option></select></div>
+                    <div class="form-group"><label>service</label><input type="text" id="connService" placeholder="consulting / pilot"></div>
+                </div>
+                <div class="form-group"><label>message / comments</label><textarea id="connMessage" rows="2"></textarea></div>
+                <button type="submit" class="btn-submit"><i class="fas fa-paper-plane"></i> SEND REQUEST</button>
+                <div id="formFeedback"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPL-hNhqjUoGgx-amUGMU2ExteEAUT3RE",
+            authDomain: "sgd-web-375c2.firebaseapp.com",
+            projectId: "sgd-web-375c2",
+            storageBucket: "sgd-web-375c2.firebasestorage.app",
+            messagingSenderId: "468947653551",
+            appId: "1:468947653551:web:b3999d9ff9fe70fd7e555a"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Cursor
+        const dot = document.getElementById('cursorDot');
+        document.addEventListener('mousemove', (e) => {
+            dot.style.left = e.clientX + 'px';
+            dot.style.top = e.clientY + 'px';
+        });
+
+        // Mobile menu
+        window.toggleMobileMenu = function() {
+            document.getElementById('navLinks').classList.toggle('active');
+        }
+
+        // Secret admin reveal
+        let tapCount = 0; let tapTimer;
+        window.revealAdmin = function() {
+            tapCount++;
+            if(tapCount===1) tapTimer = setTimeout(()=>{ tapCount=0; }, 3000);
+            if(tapCount>=5) {
+                clearTimeout(tapTimer); tapCount=0;
+                document.getElementById('adminNavLink').style.display = 'inline-block';
+                alert('Admin portal unlocked');
+            }
+        }
+        let keyBuf = '';
+        document.addEventListener('keydown', (e)=>{
+            keyBuf += e.key.toLowerCase(); if(keyBuf.length>5) keyBuf=keyBuf.slice(-5);
+            if(keyBuf==='admin') { 
+                document.getElementById('adminNavLink').style.display='inline-block';
+                keyBuf='';
+            }
+        });
+
+        // Drawer controls
+        window.openDrawer = function() { document.getElementById('drawerOverlay').classList.add('active'); }
+        window.closeDrawer = function() { document.getElementById('drawerOverlay').classList.remove('active'); }
+
+        // Load company stats (no dummy data)
+        const statsRef = db.collection('companyStats').doc('main');
+        statsRef.get().then((doc) => {
+            if(doc.exists) {
+                const data = doc.data();
+                document.getElementById('statProjects').innerText = data.projects || 0;
+                document.getElementById('statCountries').innerText = data.countries || 0;
+                document.getElementById('statPartners').innerText = data.partners || 0;
+                document.getElementById('statPatents').innerText = data.patents || 0;
+                document.getElementById('companyDescription').innerText = data.tagline || '—';
+                document.getElementById('founderName').innerText = data.founderName || 'Founder';
+                document.getElementById('founderBio').innerText = data.founderBio || '—';
+                document.getElementById('innovationTitle').innerText = data.innovationTitle || 'Innovation';
+                document.getElementById('innovationDesc').innerText = data.innovationDesc || '—';
+                document.getElementById('globalTitle').innerText = data.globalTitle || 'Global';
+                document.getElementById('globalDesc').innerText = data.globalDesc || '—';
+            }
+        }).catch(()=>{});
+
+        // Load projects
+        const projectsContainer = document.getElementById('projectsContainer');
+        const projectCountSpan = document.getElementById('projectCount');
+        const projectSelect = document.getElementById('connProjectSelect');
+
+        function escapeHtml(t) { if(!t)return ''; return String(t).replace(/[&<>"]/g, function(m){ 
+            if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; if(m==='"') return '&quot;'; return m;}); }
+
+        db.collection('projects').orderBy('createdAt','desc').onSnapshot((snap)=>{
+            let docs = snap.docs;
+            if(docs.length === 0){
+                projectsContainer.innerHTML = '<div class="empty-state">— no projects yet —</div>';
+                projectCountSpan.innerText = '0';
+                projectSelect.innerHTML = '<option value="" disabled selected>– no projects available –</option>';
+                return;
+            }
+            let html='', options='<option value="" disabled selected>– select project –</option>';
+            docs.forEach(d=>{
+                let p = d.data();
+                html += `<a href="${escapeHtml(p.link||'#')}" target="_blank" class="project-card">
+                    <div class="project-name">${escapeHtml(p.name)}</div>
+                    <div class="project-desc">${escapeHtml(p.description||'')}</div>
+                    <div class="project-link">${escapeHtml(p.link||'')}</div>
+                </a>`;
+                options += `<option value="${d.id}">${escapeHtml(p.name)}</option>`;
+            });
+            projectsContainer.innerHTML = html;
+            projectCountSpan.innerText = docs.length;
+            projectSelect.innerHTML = options;
+        });
+
+        // Submit connect form
+        document.getElementById('connectForm').addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const name = document.getElementById('connName').value.trim();
+            const email = document.getElementById('connEmail').value.trim();
+            const phone = document.getElementById('connPhone').value.trim();
+            const location = document.getElementById('connLocation').value.trim();
+            const projectId = document.getElementById('connProjectSelect').value;
+            const service = document.getElementById('connService').value.trim();
+            const message = document.getElementById('connMessage').value.trim();
+
+            if(!name || !email || !projectId) { 
+                document.getElementById('formFeedback').innerText = '⚠️ name, email and project required';
+                return; 
+            }
+            const selectEl = document.getElementById('connProjectSelect');
+            const projectName = selectEl.options[selectEl.selectedIndex]?.text || '';
+
+            try {
+                await db.collection('inquiries').add({
+                    userName: name, email, phone, location, projectId, projectName,
+                    service, comments: message, 
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(), 
+                    status: 'new'
+                });
+                document.getElementById('formFeedback').innerHTML = '<span style="color:#a0ffa0;">✓ request sent</span>';
+                document.getElementById('connectForm').reset();
+                setTimeout(()=> closeDrawer(), 1500);
+            } catch(e){ 
+                document.getElementById('formFeedback').innerText = '❌ error';
+            }
+        });
+
+        // Admin link
+        document.getElementById('adminNavLink').setAttribute('href', 'admin.html');
+        document.getElementById('adminNavLink').setAttribute('target', '_blank');
+    </script>
+</body>
+</html>
